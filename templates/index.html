@@ -49,7 +49,10 @@
     </div>
   </section>
 
+  <!-- Socket.IO Client CDN -->
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
   <script>
+    const socket = io(); // automatically connects to same origin
     const textarea = document.querySelector("#textarea");
     const messageArea = document.querySelector("#messageArea");
     let username = prompt("Enter your name:") || "Anonymous";
@@ -62,23 +65,21 @@
       messageArea.scrollTop = messageArea.scrollHeight;
     }
 
-    // WebSocket setup
-    const socket = new WebSocket("ws://" + location.host + "/ws");
-
-    socket.onopen = () => {
-      socket.send(JSON.stringify({ type: "join", user: username }));
-    };
-
-    socket.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      appendMessage(data, data.user === username ? "outgoing" : "incoming");
-    };
-
     textarea.addEventListener("keyup", (e) => {
-      if (e.key === "Enter") {
-        const msg = { user: username, message: textarea.value.trim() };
-        socket.send(JSON.stringify(msg));
+      if (e.key === "Enter" && textarea.value.trim() !== "") {
+        const msg = {
+          user: username,
+          message: textarea.value.trim()
+        };
+        appendMessage(msg, "outgoing");
+        socket.send(msg);  // send via Flask-SocketIO
         textarea.value = "";
+      }
+    });
+
+    socket.on("message", (msg) => {
+      if (msg.user !== username) {
+        appendMessage(msg, "incoming");
       }
     });
   </script>
