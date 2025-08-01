@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>RRCS Live Chat</title>
+  <title>Live Chat</title>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Roboto&display=swap');
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -40,7 +40,7 @@
 <body>
   <section class="chat__section">
     <div class="brand">
-      <img src="/logo.jpg" height="40" alt="Logo" />
+      <img src="logo.jpg" height="40" alt="Logo" />
       <h1>Live Chat</h1>
     </div>
     <div class="message__area" id="messageArea"></div>
@@ -49,7 +49,10 @@
     </div>
   </section>
 
+  <!-- Socket.IO Client CDN -->
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
   <script>
+    const socket = io(); // automatically connects to same origin
     const textarea = document.querySelector("#textarea");
     const messageArea = document.querySelector("#messageArea");
     let username = prompt("Enter your name:") || "Anonymous";
@@ -62,23 +65,21 @@
       messageArea.scrollTop = messageArea.scrollHeight;
     }
 
-    // WebSocket setup
-    const socket = new WebSocket("ws://" + location.host + "/ws");
-
-    socket.onopen = () => {
-      socket.send(JSON.stringify({ type: "join", user: username }));
-    };
-
-    socket.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      appendMessage(data, data.user === username ? "outgoing" : "incoming");
-    };
-
     textarea.addEventListener("keyup", (e) => {
-      if (e.key === "Enter") {
-        const msg = { user: username, message: textarea.value.trim() };
-        socket.send(JSON.stringify(msg));
+      if (e.key === "Enter" && textarea.value.trim() !== "") {
+        const msg = {
+          user: username,
+          message: textarea.value.trim()
+        };
+        appendMessage(msg, "outgoing");
+        socket.send(msg);  // send via Flask-SocketIO
         textarea.value = "";
+      }
+    });
+
+    socket.on("message", (msg) => {
+      if (msg.user !== username) {
+        appendMessage(msg, "incoming");
       }
     });
   </script>
