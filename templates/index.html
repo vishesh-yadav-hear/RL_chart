@@ -3,65 +3,82 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Real-Time Chat</title>
-  <script src="https://cdn.socket.io/4.3.2/socket.io.min.js"></script>
+  <title>RRCS Live Chat</title>
   <style>
+    @import url('https://fonts.googleapis.com/css2?family=Roboto&display=swap');
+    * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
-      font-family: sans-serif;
-      background: #f0f0f0;
-      padding: 20px;
+      display: flex; justify-content: center; align-items: center;
+      height: 100vh; background: #f8f8f8; font-family: 'Roboto', sans-serif;
     }
-    #chat-box {
-      height: 300px;
-      border: 1px solid #aaa;
-      padding: 10px;
-      overflow-y: scroll;
-      background: white;
-      margin-bottom: 10px;
+    section.chat__section {
+      width: 800px; max-width: 90%; background: #fff;
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1),
+                  0 4px 6px -2px rgba(0, 0, 0, 0.05);
     }
-    .incoming {
-      text-align: left;
-      color: blue;
+    .brand { padding: 20px; background: #f1f1f1; display: flex; align-items: center; }
+    .brand h1 { margin-left: 10px; font-size: 20px; color: #444; text-transform: uppercase; }
+    .message__area {
+      height: 500px; padding: 16px; overflow-y: auto;
+      display: flex; flex-direction: column; padding-top: 40px;
     }
-    .outgoing {
-      text-align: right;
-      color: green;
+    textarea {
+      width: 100%; padding: 20px; font-size: 16px;
+      border: none; outline: none; background: #fbfbfb;
+    }
+    .message {
+      padding: 20px; border-radius: 4px; margin-bottom: 40px;
+      max-width: 300px; position: relative;
+    }
+    .incoming { background: #8f8be8; color: #fff; }
+    .outgoing { background: #e9eafd; color: #787986; margin-left: auto; }
+    .message h4 {
+      position: absolute; top: -20px; left: 0; font-size: 14px; color: #333;
     }
   </style>
 </head>
 <body>
-  <h2>Real-Time Chat</h2>
-  <div id="chat-box"></div>
-  <input type="text" id="message" placeholder="Type message..." />
-  <button onclick="sendMessage()">Send</button>
+  <section class="chat__section">
+    <div class="brand">
+      <img src="/logo.jpg" height="40" alt="Logo" />
+      <h1>Live Chat</h1>
+    </div>
+    <div class="message__area" id="messageArea"></div>
+    <div>
+      <textarea id="textarea" placeholder="Write a message..."></textarea>
+    </div>
+  </section>
 
   <script>
-    const username = prompt("Enter your name");
-    const socket = io();
-
-    const chatBox = document.getElementById('chat-box');
-    const messageInput = document.getElementById('message');
+    const textarea = document.querySelector("#textarea");
+    const messageArea = document.querySelector("#messageArea");
+    let username = prompt("Enter your name:") || "Anonymous";
 
     function appendMessage(msg, type) {
-      const div = document.createElement('div');
-      div.classList.add(type);
-      div.textContent = msg.user + ": " + msg.message;
-      chatBox.appendChild(div);
-      chatBox.scrollTop = chatBox.scrollHeight;
+      let div = document.createElement("div");
+      div.classList.add("message", type);
+      div.innerHTML = `<h4>${msg.user}</h4><p>${msg.message}</p>`;
+      messageArea.appendChild(div);
+      messageArea.scrollTop = messageArea.scrollHeight;
     }
 
-    function sendMessage() {
-      const text = messageInput.value.trim();
-      if (text === "") return;
-      const msg = { user: username, message: text };
-      socket.emit('message', msg);
-      appendMessage(msg, "outgoing");
-      messageInput.value = "";
-    }
+    // WebSocket setup
+    const socket = new WebSocket("ws://" + location.host + "/ws");
 
-    socket.on("message", (msg) => {
-      if (msg.user !== username) {
-        appendMessage(msg, "incoming");
+    socket.onopen = () => {
+      socket.send(JSON.stringify({ type: "join", user: username }));
+    };
+
+    socket.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      appendMessage(data, data.user === username ? "outgoing" : "incoming");
+    };
+
+    textarea.addEventListener("keyup", (e) => {
+      if (e.key === "Enter") {
+        const msg = { user: username, message: textarea.value.trim() };
+        socket.send(JSON.stringify(msg));
+        textarea.value = "";
       }
     });
   </script>
