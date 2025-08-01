@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Live Chat</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Roboto&display=swap');
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      display: flex; justify-content: center; align-items: center;
+      height: 100vh; background: #f8f8f8; font-family: 'Roboto', sans-serif;
+    }
+    section.chat__section {
+      width: 800px; max-width: 90%; background: #fff;
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1),
+                  0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    }
+    .brand { padding: 20px; background: #f1f1f1; display: flex; align-items: center; }
+    .brand h1 { margin-left: 10px; font-size: 20px; color: #444; text-transform: uppercase; }
+    .message__area {
+      height: 500px; padding: 16px; overflow-y: auto;
+      display: flex; flex-direction: column; padding-top: 40px;
+    }
+    textarea {
+      width: 100%; padding: 20px; font-size: 16px;
+      border: none; outline: none; background: #fbfbfb;
+    }
+    .message {
+      padding: 20px; border-radius: 4px; margin-bottom: 40px;
+      max-width: 300px; position: relative;
+    }
+    .incoming { background: #8f8be8; color: #fff; }
+    .outgoing { background: #e9eafd; color: #787986; margin-left: auto; }
+    .message h4 {
+      position: absolute; top: -20px; left: 0; font-size: 14px; color: #333;
+    }
+  </style>
+</head>
+<body>
+  <section class="chat__section">
+    <div class="brand">
+      <img src="logo.jpg" height="40" alt="Logo" />
+      <h1>Live Chat</h1>
+    </div>
+    <div class="message__area" id="messageArea"></div>
+    <div>
+      <textarea id="textarea" placeholder="Write a message..."></textarea>
+    </div>
+  </section>
+
+  <script>
+    const textarea = document.querySelector("#textarea");
+    const messageArea = document.querySelector("#messageArea");
+    let username = prompt("Enter your name:") || "Anonymous";
+
+    function appendMessage(msg, type) {
+      let div = document.createElement("div");
+      div.classList.add("message", type);
+      div.innerHTML = `<h4>${msg.user}</h4><p>${msg.message}</p>`;
+      messageArea.appendChild(div);
+      messageArea.scrollTop = messageArea.scrollHeight;
+    }
+
+    // WebSocket setup
+    const socket = new WebSocket("ws://" + location.host + "/ws");
+
+    socket.onopen = () => {
+      socket.send(JSON.stringify({ type: "join", user: username }));
+    };
+
+    socket.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      appendMessage(data, data.user === username ? "outgoing" : "incoming");
+    };
+
+    textarea.addEventListener("keyup", (e) => {
+      if (e.key === "Enter") {
+        const msg = { user: username, message: textarea.value.trim() };
+        socket.send(JSON.stringify(msg));
+        textarea.value = "";
+      }
+    });
+  </script>
+</body>
+</html>
