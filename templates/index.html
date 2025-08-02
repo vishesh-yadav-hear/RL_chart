@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Live Chat</title>
   <style>
+      <style>
     @import url('https://fonts.googleapis.com/css2?family=Roboto&display=swap');
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
@@ -44,6 +45,10 @@
       font-size: 0.9em;
     }
   </style>
+
+
+  </style>
+  </style>
 </head>
 <body>
   <section class="chat__section">
@@ -51,23 +56,20 @@
       <h1>Live Chat</h1>
     </div>
     <div class="message__area" id="messageArea"></div>
-    <div class="status" id="status">Connected</div>
     <div>
-      <textarea id="textarea" placeholder="Write a message..." autocomplete="off"></textarea>
+      <textarea id="textarea" placeholder="Write a message..."></textarea>
     </div>
   </section>
 
-  <!-- Socket.IO Client CDN -->
   <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
   <script>
     const socket = io();
     const textarea = document.querySelector("#textarea");
     const messageArea = document.querySelector("#messageArea");
-    const statusDiv = document.querySelector("#status");
     
-    let username = prompt("Enter your name:") || "Anonymous";
-    let isTyping = false;
-    let typingTimeout;
+    // Get username and store it in sessionStorage
+    let username = sessionStorage.getItem('username') || prompt("Enter your name:") || "Anonymous";
+    sessionStorage.setItem('username', username);
 
     // Scroll to bottom initially
     messageArea.scrollTop = messageArea.scrollHeight;
@@ -77,62 +79,25 @@
       messageDiv.classList.add("message", type);
       messageDiv.innerHTML = `<h4>${msg.user}</h4><p>${msg.message}</p>`;
       messageArea.appendChild(messageDiv);
-      
-      // Scroll to bottom after new message
       messageArea.scrollTop = messageArea.scrollHeight;
     }
 
-    function showStatus(message) {
-      statusDiv.textContent = message;
-      setTimeout(() => {
-        if(statusDiv.textContent === message) {
-          statusDiv.textContent = 'Connected';
-        }
-      }, 3000);
-    }
-
-    textarea.addEventListener("input", () => {
-      if(!isTyping) {
-        isTyping = true;
-        socket.emit("typing", { user: username, isTyping: true });
-      }
-      
-      clearTimeout(typingTimeout);
-      typingTimeout = setTimeout(() => {
-        isTyping = false;
-        socket.emit("typing", { user: username, isTyping: false });
-      }, 1000);
-    });
-
     textarea.addEventListener("keyup", (e) => {
-      if (e.key === "Enter" && !e.shiftKey && textarea.value.trim() !== "") {
-        e.preventDefault();
+      if (e.key === "Enter" && textarea.value.trim() !== "") {
         const msg = {
           user: username,
           message: textarea.value.trim()
         };
-        appendMessage(msg, "outgoing");
-        socket.emit("message", msg);
+        appendMessage(msg, "outgoing");  // Show locally as outgoing
+        socket.emit("message", msg);     // Send to server
         textarea.value = "";
       }
     });
 
-    socket.on("connect", () => {
-      showStatus("You're connected");
-    });
-
-    socket.on("disconnect", () => {
-      showStatus("Disconnected from server");
-    });
-
+    // Handle incoming messages from ANY user
     socket.on("message", (msg) => {
+      // Always show as incoming (don't filter by username)
       appendMessage(msg, "incoming");
-    });
-
-    socket.on("typing", (data) => {
-      if(data.isTyping && data.user !== username) {
-        showStatus(`${data.user} is typing...`);
-      }
     });
   </script>
 </body>
