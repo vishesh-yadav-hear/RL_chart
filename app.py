@@ -1,9 +1,9 @@
-from flask import Flask, render_template, request
-from flask_socketio import SocketIO, send, emit
+from flask import Flask, render_template
+from flask_socketio import SocketIO, emit
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'hacker_h_ham'
-socketio = SocketIO(app)
+app.config['SECRET_KEY'] = 'your_secret_key_here'  # Change to a strong secret
+socketio = SocketIO(app, cors_allowed_origins="*")
 
 @app.route('/')
 def index():
@@ -12,10 +12,8 @@ def index():
 @socketio.on('message')
 def handle_message(msg):
     print(f"Message: {msg}")
-    send(msg, broadcast=True)
-
-
-
+    # Broadcast to all clients except sender
+    emit('message', msg, broadcast=True, include_self=False)
 
 if __name__ == '__main__':
-    socketio.run(app, debug=True, allow_unsafe_werkzeug=True)
+    socketio.run(app, debug=True)
