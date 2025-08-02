@@ -16,7 +16,10 @@
       box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1),
                   0 4px 6px -2px rgba(0, 0, 0, 0.05);
     }
-    .brand { padding: 20px; background: #f1f1f1; display: flex; align-items: center; }
+    .brand { 
+      padding: 20px; background: #f1f1f1; display: flex; align-items: center; 
+      position: sticky; top: 0; z-index: 100;
+    }
     .brand h1 { margin-left: 10px; font-size: 20px; color: #444; text-transform: uppercase; }
     .message__area {
       height: 500px; padding: 16px; overflow-y: auto;
@@ -25,61 +28,110 @@
     textarea {
       width: 100%; padding: 20px; font-size: 16px;
       border: none; outline: none; background: #fbfbfb;
+      position: sticky; bottom: 0;
     }
     .message {
       padding: 20px; border-radius: 4px; margin-bottom: 40px;
-      max-width: 300px; position: relative;
+      max-width: 300px; position: relative; word-wrap: break-word;
     }
     .incoming { background: #8f8be8; color: #fff; }
     .outgoing { background: #e9eafd; color: #787986; margin-left: auto; }
     .message h4 {
       position: absolute; top: -20px; left: 0; font-size: 14px; color: #333;
     }
+    .status {
+      text-align: center; color: #777; padding: 5px; font-style: italic;
+      font-size: 0.9em;
+    }
   </style>
 </head>
 <body>
   <section class="chat__section">
     <div class="brand">
-      <img src="logo.jpg" height="40" alt="Logo" />
       <h1>Live Chat</h1>
     </div>
     <div class="message__area" id="messageArea"></div>
+    <div class="status" id="status">Connected</div>
     <div>
-      <textarea id="textarea" placeholder="Write a message..."></textarea>
+      <textarea id="textarea" placeholder="Write a message..." autocomplete="off"></textarea>
     </div>
   </section>
 
   <!-- Socket.IO Client CDN -->
   <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
   <script>
-    const socket = io(); // automatically connects to same origin
+    const socket = io();
     const textarea = document.querySelector("#textarea");
     const messageArea = document.querySelector("#messageArea");
+    const statusDiv = document.querySelector("#status");
+    
     let username = prompt("Enter your name:") || "Anonymous";
+    let isTyping = false;
+    let typingTimeout;
+
+    // Scroll to bottom initially
+    messageArea.scrollTop = messageArea.scrollHeight;
 
     function appendMessage(msg, type) {
-      let div = document.createElement("div");
-      div.classList.add("message", type);
-      div.innerHTML = `<h4>${msg.user}</h4><p>${msg.message}</p>`;
-      messageArea.appendChild(div);
+      const messageDiv = document.createElement("div");
+      messageDiv.classList.add("message", type);
+      messageDiv.innerHTML = `<h4>${msg.user}</h4><p>${msg.message}</p>`;
+      messageArea.appendChild(messageDiv);
+      
+      // Scroll to bottom after new message
       messageArea.scrollTop = messageArea.scrollHeight;
     }
 
+    function showStatus(message) {
+      statusDiv.textContent = message;
+      setTimeout(() => {
+        if(statusDiv.textContent === message) {
+          statusDiv.textContent = 'Connected';
+        }
+      }, 3000);
+    }
+
+    textarea.addEventListener("input", () => {
+      if(!isTyping) {
+        isTyping = true;
+        socket.emit("typing", { user: username, isTyping: true });
+      }
+      
+      clearTimeout(typingTimeout);
+      typingTimeout = setTimeout(() => {
+        isTyping = false;
+        socket.emit("typing", { user: username, isTyping: false });
+      }, 1000);
+    });
+
     textarea.addEventListener("keyup", (e) => {
-      if (e.key === "Enter" && textarea.value.trim() !== "") {
+      if (e.key === "Enter" && !e.shiftKey && textarea.value.trim() !== "") {
+        e.preventDefault();
         const msg = {
           user: username,
           message: textarea.value.trim()
         };
         appendMessage(msg, "outgoing");
-        socket.send(msg);  // send via Flask-SocketIO
+        socket.emit("message", msg);
         textarea.value = "";
       }
     });
 
+    socket.on("connect", () => {
+      showStatus("You're connected");
+    });
+
+    socket.on("disconnect", () => {
+      showStatus("Disconnected from server");
+    });
+
     socket.on("message", (msg) => {
-      if (msg.user !== username) {
-        appendMessage(msg, "incoming");
+      appendMessage(msg, "incoming");
+    });
+
+    socket.on("typing", (data) => {
+      if(data.isTyping && data.user !== username) {
+        showStatus(`${data.user} is typing...`);
       }
     });
   </script>
